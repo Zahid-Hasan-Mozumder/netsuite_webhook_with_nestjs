@@ -3,20 +3,65 @@
 @NScriptType UserEventScript
 */
 
-define(['N/https', 'N/runtime'], function (https, runtime) {
+define(['N/https', 'N/runtime', 'N/record'], function (https, runtime, record) {
 
     function afterStatusChange(context) {
 
         var newRecord = context.newRecord;
         var shipStatus = newRecord.getValue({ fieldId: 'shipstatus' });
+        var salesOrderId = newRecord.getValue({ fieldId: 'orderid' });
+        salesOrderId = Number(salesOrderId);
+        var salesOrder = record.load({
+            type: record.Type.SALES_ORDER,
+            id: salesOrderId
+        });
 
-        var message = "No Status";
-        if (shipStatus === "A") message = "Picked";
-        if (shipStatus === "B") message = "Packed";
-        if (shipStatus === "C") message = "Shipped";
+        var message = [];
+        var status = "No Status"
+        if (shipStatus === "A") status = "Picked";
+        if (shipStatus === "B") status = "Packed";
+        if (shipStatus === "C") status = "Shipped";
 
-        var webhookUrl = "https://2b98-103-112-54-213.ngrok-free.app/hook/webhook";
-        var responseBody = { "status": message };
+        var lineCount = salesOrder.getLineCount({ sublistId: 'item' });
+        for (var i = 0; i < lineCount; i++) {
+            var itemId = salesOrder.getSublistValue({ sublistId: 'item', fieldId: 'item', line: i });
+            var quantityFulfilled = salesOrder.getSublistValue({ sublistId: 'item', fieldId: 'quantityfulfilled', line: i });
+            var originalQuantity = salesOrder.getSublistValue({ sublistId: 'item', fieldId: 'origquantity', line: i });
+            var quantityPickPackship = salesOrder.getSublistValue({ sublistId: 'item', fieldId: 'quantitypickpackship', line: i });
+
+            var inProcess = quantityPickPackship - quantityFulfilled;
+            var remaining = originalQuantity - quantityPickPackship;
+            
+            if(remaining){
+                message.push(
+                    {
+                        itemId: itemId,
+                        alreadyFulFilled : quantityFulfilled,
+                        inProcess: inProcess,
+                        originalQuantity: originalQuantity,
+                        remaining: remaining,
+                        Type: "Partially",
+                        status: status
+                    }
+                )
+            }
+            else{
+                message.push(
+                    {
+                        itemId: itemId,
+                        alreadyFulFilled : quantityFulfilled,
+                        inProcess: inProcess,
+                        originalQuantity: originalQuantity,
+                        remaining: remaining,
+                        Type: "Fully",
+                        status: status
+                    }
+                )
+            }
+        }
+
+        var webhookUrl = "https://a993-103-112-54-213.ngrok-free.app/hook/webhook";
+        var responseBody = { "response": message };
 
         try {
 

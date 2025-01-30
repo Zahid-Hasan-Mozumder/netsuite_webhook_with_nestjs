@@ -13,7 +13,7 @@ define(['N/https', 'N/runtime'], function (https, runtime) {
         var message = "No Status";
         if (orderStatus === "B") message = "Pending Fulfillment";
 
-        var webhookUrl = "https://2b98-103-112-54-213.ngrok-free.app/hook/webhook";
+        var webhookUrl = "https://a993-103-112-54-213.ngrok-free.app/hook/webhook";
         var responseBody = { "status": message };
 
         try {
